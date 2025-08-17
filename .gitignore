@@ -3,3 +3,5 @@ __pycache__/
 data/
 .env
 .ipynb_checkpoints/
+vector_store/
+venv/

@@ -6,8 +6,8 @@ from src.indexer import ComplaintIndexer
 from src.retriever import ComplaintRetriever
 from src.generator import BusinessAnswerGenerator
 from src.rag_pipeline import RAGPipeline
-from src.utils.logger import setup_logger
 from src.query_validator import QueryValidator
+from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
@@ -20,7 +20,6 @@ def main():
     args = parser.parse_args()
     
     config = Config.from_env()
-    validator = QueryValidator(config)
     
     try:
         # Load and preprocess data
@@ -42,8 +41,12 @@ def main():
         
         # Initialize retriever and generator
         retriever = ComplaintRetriever(indexer.model, indexer.index, indexer.metadatas)
-        generator = BusinessAnswerGenerator(config)  # Pass config to generator
-        rag = RAGPipeline(retriever, generator)
+        generator = BusinessAnswerGenerator(config)
+        
+        # Initialize validator WITH config parameter
+        validator = QueryValidator(config)  # ← FIXED: Pass config to validator
+        
+        rag = RAGPipeline(retriever, generator, config)
         
         # Apply business filters if provided
         filters = {}
@@ -94,7 +97,7 @@ def main():
                         print("  • Competitive intelligence from user feedback")
                         continue
                     elif question.lower() == 'examples':
-                        print(validator.suggest_questions())
+                        print(validator.suggest_questions())  # ← Now validator is defined
                         continue
                     elif not question:
                         continue

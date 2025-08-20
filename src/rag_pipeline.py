@@ -5,12 +5,13 @@ from src.query_validator import QueryValidator
 logger = setup_logger(__name__)
 
 class RAGPipeline:
-    def __init__(self, retriever, generator):
+    def __init__(self, retriever, generator, config):
         self.retriever = retriever
         self.generator = generator
-        self.validator = QueryValidator()
+        self.validator = QueryValidator(config)  # ← Pass config to validator
+        self.config = config
     
-    def run(self, question: str, k: int = 8, filters: Dict = None) -> Tuple[str, List[Dict]]:
+    def run(self, question: str, k: int = 5, filters: Dict = None) -> Tuple[str, List[Dict]]:
         """Run the complete RAG pipeline with query validation"""
         try:
             logger.info(f"Processing question: {question}")
@@ -20,15 +21,11 @@ class RAGPipeline:
             if not is_valid:
                 return validation_message + self.validator.suggest_questions(), []
             
-            # Retrieve more chunks for better analysis (especially for "top" questions)
+            # Retrieve relevant chunks
             chunks = self.retriever.retrieve_chunks(question, k, filters)
             
             if not chunks:
                 return "I couldn't find any relevant information to answer your question. Please try rephrasing or ask about a different topic related to financial complaints.", []
-            
-            # For "top" questions, analyze patterns across chunks
-            if any(word in question.lower() for word in ['top', 'most common', 'frequent', 'common issues']):
-                chunks = self._analyze_complaint_patterns(chunks, question)
             
             # Build prompt and generate answer
             prompt = self.generator.build_prompt(chunks, question)

@@ -23,6 +23,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Global variables to avoid scope issues
+config = None
+validator = None
+rag_pipeline = None
+
 # ---------------------------
 # Cached Pipeline Loading
 # ---------------------------
@@ -30,6 +35,8 @@ st.set_page_config(
 def load_pipeline():
     """Load and initialize the RAG pipeline with caching"""
     try:
+        global config, validator, rag_pipeline
+        
         config = Config.from_env()
         
         # 1. Load and preprocess data
@@ -53,16 +60,20 @@ def load_pipeline():
         generator = BusinessAnswerGenerator(config)
         validator = QueryValidator(config)
         
-        return RAGPipeline(retriever, generator), config, validator
+        # 4. Initialize RAGPipeline with config parameter
+        rag_pipeline = RAGPipeline(retriever, generator, config)
+        
+        return rag_pipeline, config, validator
         
     except Exception as e:
         st.error(f"❌ Failed to initialize pipeline: {str(e)}")
+        logger.error(f"Pipeline initialization failed: {e}")
         return None, None, None
 
 # ---------------------------
 # UI Components
 # ---------------------------
-def render_sidebar():
+def render_sidebar(_config):
     """Render the sidebar with filters and info"""
     with st.sidebar:
         st.image("https://via.placeholder.com/150x50/0066cc/ffffff?text=CrediTrust", width=150)
@@ -74,14 +85,14 @@ def render_sidebar():
         # Product filter
         selected_product = st.selectbox(
             "Filter by Product:",
-            ["All Products"] + config.PRODUCTS,
+            ["All Products"] + _config.PRODUCTS,
             help="Focus analysis on specific products"
         )
         
         # Market filter
         selected_market = st.selectbox(
             "Filter by Market:",
-            ["All Markets"] + config.MARKETS,
+            ["All Markets"] + _config.MARKETS,
             help="Focus analysis on specific regions"
         )
         
@@ -115,7 +126,7 @@ def render_sidebar():
         return {"product": selected_product if selected_product != "All Products" else None,
                 "market": selected_market if selected_market != "All Markets" else None}
 
-def render_main_content():
+def render_main_content(_config, _sidebar_filters):
     """Render the main content area"""
     # Header
     col1, col2 = st.columns([3, 1])
@@ -139,10 +150,10 @@ def render_main_content():
     
     # Filters from sidebar
     filters = {}
-    if sidebar_filters['product']:
-        filters['product'] = sidebar_filters['product']
-    if sidebar_filters['market']:
-        filters['market'] = sidebar_filters['market']
+    if _sidebar_filters['product']:
+        filters['product'] = _sidebar_filters['product']
+    if _sidebar_filters['market']:
+        filters['market'] = _sidebar_filters['market']
     
     # Display active filters
     if filters:
@@ -194,20 +205,23 @@ def main():
         st.session_state.current_question = ''
     
     # Load pipeline (cached)
-    rag_pipeline, global_config, validator = load_pipeline()
+    rag_pipeline_loaded, config_loaded, validator_loaded = load_pipeline()
     
-    if rag_pipeline is None:
+    if rag_pipeline_loaded is None:
         st.error("Failed to initialize the analysis system. Please check the logs.")
         return
     
-    global config
-    config = global_config
+    # Set global variables
+    global config, validator, rag_pipeline
+    config = config_loaded
+    validator = validator_loaded
+    rag_pipeline = rag_pipeline_loaded
     
     # Render sidebar and get filters
-    sidebar_filters = render_sidebar()
+    sidebar_filters = render_sidebar(config)
     
     # Render main content and get question
-    question, filters = render_main_content()
+    question, filters = render_main_content(config, sidebar_filters)
     
     # Process question
     if question and st.button("🚀 Analyze Complaints", type="primary"):

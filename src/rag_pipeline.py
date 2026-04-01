@@ -16,13 +16,25 @@ class RAGPipeline:
         try:
             logger.info(f"Processing question: {question}")
             
-            # Validate query first
+            # 1. Validate query first
             is_valid, validation_message = self.validator.validate_query(question)
             if not is_valid:
                 return validation_message + self.validator.suggest_questions(), []
             
-            # Retrieve relevant chunks
-            chunks = self.retriever.retrieve_chunks(question, k, filters)
+            # 2. Extract automatic filters from the question
+            extracted_filters = self.validator.extract_filters(question)
+            
+            # 3. Merge filters: Manual filters (from UI) override automatic extraction
+            active_filters = (filters or {}).copy()
+            for key, value in extracted_filters.items():
+                if key not in active_filters:
+                    active_filters[key] = value
+            
+            if active_filters:
+                logger.info(f"Applying filters for retrieval: {active_filters}")
+            
+            # 4. Retrieve relevant chunks
+            chunks = self.retriever.retrieve_chunks(question, k, active_filters)
             
             if not chunks:
                 return "I couldn't find any relevant information to answer your question. Please try rephrasing or ask about a different topic related to financial complaints.", []

@@ -12,6 +12,9 @@ from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
+from src.preprocessing import map_product_to_group
+import random
+
 class ComplaintIndexer:
     def __init__(self, config):
         self.config = config
@@ -27,21 +30,34 @@ class ComplaintIndexer:
         """Build FAISS index from dataframe"""
         try:
             texts, metadatas = [], []
+            markets = ["Kenya", "Uganda", "Tanzania", "Rwanda"]
             
             for i, row in df.iterrows():
-                chunks = self.splitter.split_text(row[text_col])
+                # Get the narrative text (use cleaned version if available)
+                narrative = row.get(text_col, row.get('Consumer complaint narrative', ''))
+                if not narrative or not isinstance(narrative, str):
+                    continue
+                    
+                chunks = self.splitter.split_text(narrative)
+                
+                # Determine product group and simulated market
+                orig_product = row.get('Product', 'Unknown')
+                product_group = map_product_to_group(orig_product)
+                
+                # Use existing market column if it exists, otherwise simulate East African context
+                market = row.get('market', random.choice(markets))
                 
                 for chunk in chunks:
                     texts.append(chunk)
                     metadatas.append({
-                        "complaint_id": row.get('complaint_id', f'CT_{i}'),
-                        "product": row.get('product', 'Unknown'),
-                        "market": row.get('market', 'Unknown'),
-                        "date": row.get('date', 'Unknown'),
+                        "complaint_id": row.get('Complaint ID', row.get('complaint_id', f'CT_{i}')),
+                        "product": product_group,
+                        "original_product": orig_product,
+                        "market": market,
+                        "date": row.get('Date received', row.get('date', 'Unknown')),
                         "severity": row.get('severity', 'Medium'),
-                        "channel": row.get('channel', 'Unknown'),
+                        "channel": row.get('Submitted via', row.get('channel', 'In-app')),
                         "text_chunk": chunk,
-                        "chunk_length": len(chunk)
                     })
             logger.info(f"Generated {len(texts)} chunks from {len(df)} complaints")
             

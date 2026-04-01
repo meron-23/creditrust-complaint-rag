@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 import streamlit as st
 import os
 import time
@@ -10,23 +11,102 @@ from src.rag_pipeline import RAGPipeline
 from src.query_validator import QueryValidator
 from src.utils.logger import setup_logger
 
+# Load environment variables
+load_dotenv()
+
 # Setup logger
 logger = setup_logger(__name__)
+
+# ---------------------------
+# Professional Styling (No Emojis)
+# ---------------------------
+def apply_custom_styling():
+    st.markdown("""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        
+        html, body, [class*="css"] {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .main {
+            background-color: #f8fafc;
+        }
+        
+        .stButton>button {
+            background-color: #1e293b;
+            color: white;
+            border-radius: 4px;
+            border: none;
+            padding: 0.5rem 1rem;
+            font-weight: 600;
+        }
+        
+        .stButton>button:hover {
+            background-color: #334155;
+            color: white;
+            border: none;
+        }
+        
+        .stTextInput>div>div>input {
+            border-radius: 4px;
+        }
+        
+        .sidebar .sidebar-content {
+            background-color: #0f172a;
+            color: white;
+        }
+        
+        h1, h2, h3 {
+            color: #0f172a;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+        
+        .report-header {
+            background-color: #ffffff;
+            padding: 2rem;
+            border-radius: 8px;
+            border-bottom: 4px solid #1e293b;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .source-card {
+            background-color: #ffffff;
+            padding: 1.5rem;
+            border-radius: 6px;
+            border-left: 4px solid #94a3b8;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        
+        .metric-label {
+            color: #64748b;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .metric-value {
+            color: #0f172a;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
 # ---------------------------
 # Streamlit Setup
 # ---------------------------
 st.set_page_config(
-    page_title="CrediTrust Financial - Complaint Insights AI",
-    page_icon="🤖",
+    page_title="CrediTrust Financial - Complaint Intelligence",
+    page_icon=None,
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Global variables to avoid scope issues
-config = None
-validator = None
-rag_pipeline = None
+apply_custom_styling()
 
 # ---------------------------
 # Cached Pipeline Loading
@@ -35,38 +115,34 @@ rag_pipeline = None
 def load_pipeline():
     """Load and initialize the RAG pipeline with caching"""
     try:
-        global config, validator, rag_pipeline
-        
         config = Config.from_env()
         
         # 1. Load and preprocess data
-        with st.spinner("📊 Loading complaint data..."):
-            df = load_complaints(config.DATA_PATH)
-            df = preprocess_dataset(df)
+        # Note: Dynamic preprocessing happens inside the indexer/pipeline
+        df = load_complaints(config.DATA_PATH)
+        df_processed = preprocess_dataset(df)
 
         # 2. Build or load index
         indexer = ComplaintIndexer(config)
 
         if not os.path.exists(config.VECTOR_STORE_PATH + ".index"):
-            with st.spinner("🔨 Building search index..."):
-                indexer.build_index(df)
-                indexer.save()
+            indexer.build_index(df_processed)
+            indexer.save()
         else:
-            with st.spinner("📂 Loading existing index..."):
-                indexer.load()
+            indexer.load()
 
         # 3. Initialize pipeline components
         retriever = ComplaintRetriever(indexer.model, indexer.index, indexer.metadatas)
         generator = BusinessAnswerGenerator(config)
         validator = QueryValidator(config)
         
-        # 4. Initialize RAGPipeline with config parameter
-        rag_pipeline = RAGPipeline(retriever, generator, config)
+        # 4. Initialize RAGPipeline
+        pipeline = RAGPipeline(retriever, generator, config)
         
-        return rag_pipeline, config, validator
+        return pipeline, config, validator
         
     except Exception as e:
-        st.error(f"❌ Failed to initialize pipeline: {str(e)}")
+        st.error(f"Initialization Error: {str(e)}")
         logger.error(f"Pipeline initialization failed: {e}")
         return None, None, None
 
@@ -74,30 +150,28 @@ def load_pipeline():
 # UI Components
 # ---------------------------
 def render_sidebar(_config):
-    """Render the sidebar with filters and info"""
+    """Render the sidebar with filters and info (Strict Professional)"""
     with st.sidebar:
-        st.image("https://via.placeholder.com/150x50/0066cc/ffffff?text=CrediTrust", width=150)
-        st.title("🤖 Complaint Insights AI")
+        st.markdown("<h2 style='color: white;'>CrediTrust</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #94a3b8; font-size: 0.9rem;'>Complaint Intelligence AI</p>", unsafe_allow_html=True)
         
         st.markdown("---")
-        st.markdown("### 📊 Filters")
+        st.markdown("### Parameters")
         
-        # Product filter
         selected_product = st.selectbox(
-            "Filter by Product:",
+            "Product Focus:",
             ["All Products"] + _config.PRODUCTS,
-            help="Focus analysis on specific products"
+            key="product_select"
         )
         
-        # Market filter
         selected_market = st.selectbox(
-            "Filter by Market:",
+            "Market Focus:",
             ["All Markets"] + _config.MARKETS,
-            help="Focus analysis on specific regions"
+            key="market_select"
         )
         
         st.markdown("---")
-        st.markdown("### 💡 Example Questions")
+        st.markdown("### Suggested Queries")
         
         example_questions = [
             "What are the top complaints about BNPL in Kenya?",
@@ -107,159 +181,148 @@ def render_sidebar(_config):
             "What are emerging fraud patterns in money transfers?"
         ]
         
-        for question in example_questions:
-            if st.button(f"• {question}", key=question):
-                st.session_state.current_question = question
+        for q in example_questions:
+            if st.button(q, key=f"btn_{q}"):
+                st.session_state.current_question = q
+                st.rerun()
+        
+        if st.button("Clear Conversation", use_container_width=True):
+            st.session_state.current_question = ""
+            st.session_state.last_answer = None
+            st.session_state.last_chunks = None
+            st.rerun()
         
         st.markdown("---")
-        st.markdown("### 📈 About")
         st.markdown("""
-        **CrediTrust Financial** serves 500,000+ customers across:
-        - 🇰🇪 Kenya
-        - 🇺🇬 Uganda  
-        - 🇹🇿 Tanzania
-        - 🇷🇼 Rwanda
+            <div style='color: #94a3b8; font-size: 0.8rem;'>
+            v2.0.0 (Gemini Powered)<br>
+            Strict Professional Mode
+            </div>
+        """, unsafe_allow_html=True)
         
-        **Products:** Credit Cards, Personal Loans, BNPL, Savings, Money Transfers
-        """)
-        
-        return {"product": selected_product if selected_product != "All Products" else None,
-                "market": selected_market if selected_market != "All Markets" else None}
+        # Build filters dictionary with only specified values
+        filters = {}
+        if selected_product != "All Products":
+            filters["product"] = selected_product
+        if selected_market != "All Markets":
+            filters["market"] = selected_market
+            
+        return filters
 
-def render_main_content(_config, _sidebar_filters):
-    """Render the main content area"""
-    # Header
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.title("🔍 Complaint Intelligence Dashboard")
-    with col2:
-        st.metric("Complaints Analyzed", "50,000+", "12% this month")
-    
+def render_main_header():
+    """Render the main header section"""
     st.markdown("""
-    **Transform customer complaints into strategic insights.** Ask questions about product issues, 
-    regional trends, operational challenges, and emerging patterns across our East African markets.
-    """)
-    
-    # Question input
-    question = st.text_input(
-        "**💬 Ask a business question:**",
-        placeholder="e.g., What are the top payment processing issues in Kenya?",
-        value=st.session_state.get('current_question', ''),
-        key="question_input"
-    )
-    
-    # Filters from sidebar
-    filters = {}
-    if _sidebar_filters['product']:
-        filters['product'] = _sidebar_filters['product']
-    if _sidebar_filters['market']:
-        filters['market'] = _sidebar_filters['market']
-    
-    # Display active filters
-    if filters:
-        filter_text = " | ".join([f"{k}: {v}" for k, v in filters.items()])
-        st.info(f"**Active Filters:** {filter_text}")
-    
-    return question, filters
+        <div class="report-header">
+            <h1>Complaint Intelligence Dashboard</h1>
+            <p style="color: #64748b; max-width: 800px;">
+                Strategic analysis of customer feedback narratives across East African markets. 
+                Powered by Retrieval-Augmented Generation for grounded business insights.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
 
 def render_results(answer, chunks, processing_time):
-    """Render the analysis results"""
-    # Answer section
-    st.subheader("📈 Analysis Results")
+    """Render the analysis results with streaming effect and professional cards"""
+    st.markdown("### Strategic Analysis")
     
-    # Metrics row
+    # Summary of retrieval
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Complaints Analyzed", len(chunks), "relevant excerpts")
+        st.markdown(f"<div class='metric-label'>Source Excerpts</div><div class='metric-value'>{len(chunks)}</div>", unsafe_allow_html=True)
     with col2:
-        st.metric("Processing Time", f"{processing_time:.2f}s", "AI analysis")
+        st.markdown(f"<div class='metric-label'>Response Latency</div><div class='metric-value'>{processing_time:.2f}s</div>", unsafe_allow_html=True)
     with col3:
-        unique_products = set(chunk['metadata'].get('product', 'Unknown') for chunk in chunks)
-        st.metric("Products Covered", len(unique_products))
+        markets = set(c['metadata'].get('market', 'N/A') for c in chunks)
+        st.markdown(f"<div class='metric-label'>Geographic Scope</div><div class='metric-value'>{', '.join(markets)}</div>", unsafe_allow_html=True)
     
-    # Answer in expandable section
-    with st.expander("🎯 Executive Summary", expanded=True):
-        st.markdown(answer)
+    st.markdown("---")
     
-    # Source complaints
-    if chunks:
-        st.subheader("🔍 Source Complaints")
-        
-        for i, chunk in enumerate(chunks):
-            with st.expander(f"Complaint #{i+1} | Product: {chunk['metadata'].get('product', 'Unknown')} | Market: {chunk['metadata'].get('market', 'Unknown')}"):
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    st.markdown(f"**Excerpt:**\n{chunk['text']}")
-                with col2:
-                    st.metric("Relevance Score", f"{chunk.get('score', 0):.3f}")
-                    st.caption(f"Product: {chunk['metadata'].get('product', 'N/A')}")
-                    st.caption(f"Market: {chunk['metadata'].get('market', 'N/A')}")
-                    st.caption(f"Channel: {chunk['metadata'].get('channel', 'N/A')}")
+    # Simulated streaming for local feel if not using direct stream
+    # But since it's a generated answer, we just display it professionally
+    st.markdown(answer)
+    
+    st.markdown("---")
+    st.markdown("### Retained Evidence")
+    
+    for i, chunk in enumerate(chunks):
+        st.markdown(f"""
+            <div class="source-card">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span style="font-weight: 700; color: #1e293b;">Evidence Item {i+1}</span>
+                    <span style="font-size: 0.8rem; color: #64748b;">ID: {chunk['metadata'].get('complaint_id', 'N/A')}</span>
+                </div>
+                <div style="font-size: 0.85rem; margin-bottom: 1rem; color: #334155; font-style: italic;">
+                    "{chunk['text']}"
+                </div>
+                <div style="display: flex; gap: 1rem; font-size: 0.75rem; color: #64748b; text-transform: uppercase;">
+                    <span>Product: {chunk['metadata'].get('product', 'N/A')}</span>
+                    <span>Market: {chunk['metadata'].get('market', 'N/A')}</span>
+                    <span>Channel: {chunk['metadata'].get('channel', 'N/A')}</span>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
 
 # ---------------------------
 # Main App Logic
 # ---------------------------
 def main():
-    # Initialize session state
     if 'current_question' not in st.session_state:
         st.session_state.current_question = ''
+    if 'last_answer' not in st.session_state:
+        st.session_state.last_answer = None
+    if 'last_chunks' not in st.session_state:
+        st.session_state.last_chunks = None
     
-    # Load pipeline (cached)
-    rag_pipeline_loaded, config_loaded, validator_loaded = load_pipeline()
+    # Load pipeline
+    rag_pipeline, config, validator = load_pipeline()
     
-    if rag_pipeline_loaded is None:
-        st.error("Failed to initialize the analysis system. Please check the logs.")
+    if not rag_pipeline:
         return
     
-    # Set global variables
-    global config, validator, rag_pipeline
-    config = config_loaded
-    validator = validator_loaded
-    rag_pipeline = rag_pipeline_loaded
+    # Sidebar
+    filters = render_sidebar(config)
     
-    # Render sidebar and get filters
-    sidebar_filters = render_sidebar(config)
+    # Header
+    render_main_header()
     
-    # Render main content and get question
-    question, filters = render_main_content(config, sidebar_filters)
+    # Question Input
+    query = st.text_input(
+        "Business Inquiry",
+        placeholder="e.g., Identify recurring patterns in credit card billing disputes in Uganda",
+        value=st.session_state.current_question,
+        label_visibility="collapsed"
+    )
     
-    # Process question
-    if question and st.button("🚀 Analyze Complaints", type="primary"):
+    col1, col2 = st.columns([1, 5])
+    with col1:
+        run_analysis = st.button("Generate Analysis", use_container_width=True)
+    
+    if run_analysis and query:
         # Validate query
-        is_valid, validation_msg = validator.validate_query(question)
+        is_valid, validation_msg = validator.validate_query(query)
         
         if not is_valid:
-            st.warning(f"❌ {validation_msg}")
-            with st.expander("💡 Suggested Business Questions"):
-                st.markdown(validator.suggest_questions())
+            st.warning(validation_msg)
         else:
-            # Process the question
-            start_time = time.time()
-            
-            with st.spinner("🤖 Analyzing complaints across our markets..."):
-                try:
-                    answer, chunks = rag_pipeline.run(question, config.TOP_K_RETRIEVAL, filters)
-                    processing_time = time.time() - start_time
-                    
-                    # Render results
-                    render_results(answer, chunks, processing_time)
-                    
-                except Exception as e:
-                    st.error(f"❌ Analysis failed: {str(e)}")
-                    logger.error(f"Streamlit app error: {e}")
+            with st.spinner("Analyzing source data..."):
+                start_time = time.time()
+                answer, chunks = rag_pipeline.run(query, config.TOP_K_RETRIEVAL, filters)
+                duration = time.time() - start_time
+                
+                st.session_state.last_answer = answer
+                st.session_state.last_chunks = chunks
+                st.session_state.last_duration = duration
+                
+                render_results(answer, chunks, duration)
+    
+    elif st.session_state.last_answer:
+        render_results(
+            st.session_state.last_answer, 
+            st.session_state.last_chunks, 
+            st.session_state.last_duration
+        )
 
-    # Footer
-    st.markdown("---")
-    col1, col2, col3 = st.columns([2, 1, 1])
-    with col1:
-        st.caption("Built with ❤️ for CrediTrust Financial | AI-Powered Complaint Intelligence")
-    with col2:
-        st.caption(f"v1.0 | {len(config.PRODUCTS)} products")
-    with col3:
-        st.caption(f"{len(config.MARKETS)} markets")
-
-# ---------------------------
-# Run the app
-# ---------------------------
 if __name__ == "__main__":
     main()
+# Run the app
+# ---------------------------

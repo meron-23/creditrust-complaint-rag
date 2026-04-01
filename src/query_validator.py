@@ -1,5 +1,5 @@
 import re
-from typing import Tuple
+from typing import Tuple, Dict
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -26,6 +26,23 @@ class QueryValidator:
             r'^(customer satisfaction|user experience|cx|support)',
             r'^(regulatory|compliance|cbk|central bank)',
         ]
+        
+        # Define entity mappings for extraction
+        self.market_map = {
+            "kenya": "Kenya",
+            "uganda": "Uganda",
+            "tanzania": "Tanzania",
+            "rwanda": "Rwanda"
+        }
+        
+        self.product_map = {
+            "credit card": "Credit Cards",
+            "personal loan": "Personal Loans",
+            "bnpl": "Buy Now, Pay Later (BNPL)",
+            "buy now pay later": "Buy Now, Pay Later (BNPL)",
+            "savings": "Savings Accounts",
+            "money transfer": "Money Transfers"
+        }
     
     def validate_query(self, query: str) -> Tuple[bool, str]:
         """Validate if query is appropriate for business analysis"""
@@ -46,6 +63,28 @@ class QueryValidator:
             return False, "This doesn't appear to be a business analysis question. I specialize in customer complaint insights for CrediTrust products."
         
         return True, "Valid business query"
+    
+    def extract_filters(self, query: str) -> Dict[str, str]:
+        """Extract market and product filters from the query string"""
+        query_lower = query.lower()
+        filters = {}
+        
+        # Extract market
+        for key, value in self.market_map.items():
+            if key in query_lower:
+                filters["market"] = value
+                break
+        
+        # Extract product
+        for key, value in self.product_map.items():
+            if key in query_lower:
+                filters["product"] = value
+                break
+                
+        if filters:
+            logger.info(f"Extracted automatic filters from query: {filters}")
+            
+        return filters
     
     def suggest_questions(self) -> str:
         """Provide business-relevant question examples"""

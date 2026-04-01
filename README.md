@@ -1,92 +1,116 @@
-# 🤖 CrediTrust Financial - Complaint Intelligence AI
+# CrediTrust Financial - Complaint Intelligence AI
 
-> Transforming customer complaints into strategic business insights across East Africa
+**Transforming raw customer feedback into strategic business assets for East African FinTech.**
 
-[![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=Streamlit&logoColor=white)](https://streamlit.io/)
-[![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=for-the-badge&logo=python)](https://python.org/)
-[![FAISS](https://img.shields.io/badge/FAISS-Vector%20Search-orange?style=for-the-badge)](https://faiss.ai/)
-[![HuggingFace](https://img.shields.io/badge/HuggingFace-Transformers-yellow?style=for-the-badge&logo=huggingface)](https://huggingface.co/)
+## Overview
 
-## 🌟 Overview
+CrediTrust Financial is a rapidly growing digital company serving **500,000+ customers** across **Kenya, Uganda, Tanzania, and Rwanda**. This AI-powered intelligence system leverages **Retrieval-Augmented Generation (RAG)** and **Google Gemini** to transform thousands of unstructured customer complaints into actionable, evidence-backed business insights for Product, Support, and Compliance teams.
 
-CrediTrust Financial is a fast-growing digital finance company serving **500,000+ customers** across **Kenya, Uganda, Tanzania, and Rwanda**. This AI-powered complaint intelligence system transforms unstructured customer feedback into actionable business insights, enabling product teams to quickly identify issues, track trends, and make data-driven decisions.
+## Key Performance Indicators (KPIs)
 
-**Key Products Analyzed:**
-- 💳 Credit Cards
-- 🏦 Personal Loans  
-- 📱 BNPL (Buy Now, Pay Later)
-- 💰 Savings Accounts
-- 🔄 Money Transfers
+- **Rapid Trend Identification**: Reduce issue-to-insight time from days to minutes.
+- **Democratized Analytics**: Empower non-technical stakeholders (PMs, Support) to query raw data using natural language.
+- **Proactive Resolution**: Shift from reactive support to proactive product improvements based on real-time feedback.
 
-## 🚀 Features
+---
 
-### 🔍 Intelligent Complaint Analysis
-- **Natural Language Querying**: Ask business questions in plain English
-- **Semantic Search**: Find relevant complaints using AI embeddings
-- **Multi-market Analysis**: Compare trends across East African countries
-- **Product-specific Insights**: Drill down into specific financial products
+## Core Products Analyzed
 
-### 📊 Business Intelligence
-- **Executive Summaries**: AI-generated insights with quantitative analysis
-- **Trend Identification**: Spot emerging issues before they escalate
-- **Regional Comparisons**: Understand geographic variations in complaints
-- **Actionable Recommendations**: Data-driven suggestions for improvement
+- **Credit Cards**
+- **Personal Loans**
+- **Buy Now, Pay Later (BNPL)**
+- **Savings Accounts**
+- **Money Transfers**
 
-### 🎯 Built for Product Teams
-- **PM-Friendly Interface**: Designed for Asha (BNPL Product Manager) and team
-- **Real-time Filtering**: Focus on specific products or markets
-- **Example Questions**: One-click access to common business queries
-- **Transparent Sources**: See exactly which complaints informed each analysis
+---
 
-## 🏗️ Architecture
+## System Architecture
 
 ```mermaid
-graph TB
-    A[Customer Complaints] --> B[Data Preprocessing]
-    B --> C[FAISS Vector Store]
-    C --> D[Semantic Search]
-    E[Business Question] --> D
-    D --> F[Relevant Complaints]
-    F --> G[LLM Analysis]
-    G --> H[Strategic Insights]
+graph TD
+    subgraph "Data Engineering Layer"
+        A[CFPB Raw Datasets] --> B[Dynamic Filtering & Preprocessing]
+        B --> C[all-MiniLM-L6-v2 Embeddings]
+        C --> D[FAISS Vector Indexing]
+    end
+
+    subgraph "RAG Logic Layer"
+        E[Business Question] --> F[Semantic Query Embedding]
+        F --> G[Vector Store Similarity Search]
+        G --> H[Context-Specific Metadata Extraction]
+    end
+
+    subgraph "Gemini Analytics Engine"
+        H --> I[Advanced Prompt Orchestration]
+        I --> J[Google Gemini 1.5 Flash]
+        J --> K[Business Intelligence Report]
+    end
 ```
-## 🛠️ Technical Stack
+
+---
+
+## Technical Stack
 
 | Component | Technology | Purpose |
-|-----------|------------|---------|
-| **Embeddings** | `sentence-transformers/all-MiniLM-L6-v2` | Convert text to numerical vectors for semantic search |
-| **Vector Database** | FAISS (Facebook AI Similarity Search) | Efficient similarity search and retrieval |
-| **LLM** | `google/flan-t5-base` | Answer generation and analysis |
-| **Frontend** | Streamlit | Interactive web dashboard |
-| **Text Processing** | LangChain | Text splitting and chunking |
-| **Machine Learning** | PyTorch | Model inference and processing |
-| **Data Processing** | pandas | Data manipulation and cleaning |
-| **Numerical Computing** | NumPy | Mathematical operations |
+| :--- | :--- | :--- |
+| **LLM Engine** | **Google Gemini 1.5 Flash** | Core reasoning, analysis, and synthesis. |
+| **Vector Store** | **FAISS (Facebook AI Similarity Search)** | Ultra-fast similarity search of narrative embeddings. |
+| **Embeddings** | **Sentence-Transformers (all-MiniLM-L6-v2)** | Transforming unstructured narratives into semantic vectors. |
+| **Frontend** | **Streamlit** | Professional command center for business stakeholders. |
+| **Orchestration** | **Python (LangChain, pandas)** | RAG pipeline management and data processing. |
 
-## 📦 Installation
+---
+
+## Implementation Features
+
+### 1. Advanced Metadata Tracking
+Every retrieved complaint excerpt includes original complaint IDs, product categories, and simulated geographic data (Kenya/Uganda/Tanzania/Rwanda) ensuring full auditability and regional context.
+
+### 2. C-Suite Minimalist Interface
+A zero-emoji, professional interface designed for enterprise environments, featuring response streaming and dark-themed minimalist styling.
+
+### 3. Business Intelligence Prompts
+Custom-engineered prompts that force the AI to act as a **Senior Financial Analyst**, focusing on quantitative insights, regional patterns, and actionable recommendations.
+
+---
+
+## Setup and Installation
 
 ### Prerequisites
 
-- **Python**: 3.8 or higher
-- **Package Manager**: pip
-- **Memory**: 4GB+ RAM recommended
-- **Storage**: 2GB+ free disk space
-- **Internet Connection**: For model downloads
+- Python 3.9+
+- Google Gemini API Key
 
-### Step-by-Step Installation
+### Step-by-Step
 
-#### 1. Clone the Repository
-```bash
-git clone https://github.com/credtrust/complaint-intelligence-ai.git
-cd complaint-intelligence-ai
-```
-#### 1. Clone the Repository
-```bash
-# Linux/Mac
-python -m venv venv
-source venv/bin/activate
+1. **Clone the Repository**
+   ```bash
+   git clone https://github.com/yourusername/creditrust-complaint-rag.git
+   cd creditrust-complaint-rag
+   ```
 
-# Windows
-python -m venv venv
-venv\Scripts\
-```
+2. **Environment Configuration**
+   Create a `.env` file or set the following variable:
+   ```bash
+   export GOOGLE_API_KEY="your_api_key_here"
+   ```
+
+3. **Install Dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Launch the Command Center**
+   ```bash
+   streamlit run app.py
+   ```
+
+---
+
+## Business Impact Showcase
+
+This tool was designed for stakeholders like **Asha, PM for BNPL**, who previously spent hours reading feedback to guess at emerging issues. Today, Asha can identify a breakdown in Kenyan payment processing in seconds, backed by direct customer narratives and regional trend analysis.
+
+---
+
+Built for **CrediTrust Financial** | AI-Powered Complaint Intelligence v2.0

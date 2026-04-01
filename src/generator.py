@@ -1,6 +1,6 @@
-from transformers import pipeline, AutoTokenizer
+from google import genai
 from typing import List, Dict
-import torch
+import os
 import re
 from datetime import datetime
 
@@ -12,95 +12,88 @@ logger = setup_logger(__name__)
 class BusinessAnswerGenerator:
     def __init__(self, config):
         self.config = config
+        self.model_name = config.LLM_MODEL_NAME
         try:
-            self.generator = pipeline(
-                "text2text-generation",
-                model=config.LLM_MODEL_NAME,
-                max_length=config.MAX_GENERATION_LENGTH,
-                truncation=True,
-                temperature=config.TEMPERATURE,
-                device=0 if torch.cuda.is_available() else -1
-            )
-            self.tokenizer = AutoTokenizer.from_pretrained(config.LLM_MODEL_NAME)
-            logger.info(f"Loaded business generator model: {config.LLM_MODEL_NAME}")
+            # Configure Gemini via the new Client
+            api_key = os.getenv("GOOGLE_API_KEY")
+            if not api_key:
+                logger.warning("GOOGLE_API_KEY not found in environment. Please ensure it is set.")
+            
+            self.client = genai.Client(api_key=api_key)
+            logger.info(f"Initialized Gemini generator with model: {self.model_name}")
             
         except Exception as e:
-            raise GenerationError(f"Failed to initialize generator: {str(e)}")
+            raise GenerationError(f"Failed to initialize Gemini generator: {str(e)}")
     
     def build_prompt(self, context_chunks: List[Dict], question: str) -> str:
-        """Build business-focused prompt for CrediTrust analysis"""
+        """Build a professional, business-focused prompt for Gemini analysis"""
         context_str = "\n\n".join([
-            f"COMPLAINT {i+1} (Product: {chunk['metadata'].get('product', 'N/A')}, "
-            f"Market: {chunk['metadata'].get('market', 'N/A')}, "
-            f"Date: {chunk['metadata'].get('date', 'N/A')}):\n{chunk['text']}"
+            f"SOURCE COMPLAINT {i+1}\n"
+            f"Product: {chunk['metadata'].get('product', 'N/A')}\n"
+            f"Region: {chunk['metadata'].get('market', 'N/A')}\n"
+            f"Date: {chunk['metadata'].get('date', 'N/A')}\n"
+            f"Narrative: {chunk['text']}"
             for i, chunk in enumerate(context_chunks)
         ])
         
-        prompt = f"""**CREDITRUST FINANCIAL - BUSINESS INTELLIGENCE ANALYSIS**
-Date: {datetime.now().strftime('%Y-%m-%d')}
-Analyst: AI Complaint Insights Tool
+        prompt = f"""You are a Senior Financial Analyst at CrediTrust Financial, specializing in customer experience and operational risk for the East African market.
 
-**BUSINESS QUESTION:**
+Your objective is to provide a synthesis of the following customer complaint excerpts to answer a specific business question. 
+
+### BUSINESS QUESTION
 {question}
 
-**RELEVANT CUSTOMER COMPLAINTS ({len(context_chunks)} excerpts):**
+### SOURCE DATA EXCERPTS
 {context_str}
 
-**ANALYSIS FRAMEWORK:**
-1. QUANTITATIVE INSIGHTS: Count frequency of specific issues mentioned
-2. QUALITATIVE THEMES: Identify patterns and emerging trends  
-3. PRODUCT IMPACT: Relate issues to specific CrediTrust products
-4. GEOGRAPHIC CONTEXT: Note any regional patterns
-5. BUSINESS IMPLICATIONS: Suggest potential actions or investigations
-6. CONFIDENCE LEVEL: Note data limitations and evidence strength
+### ANALYSIS INSTRUCTIONS
+1. **Be Professional & Objective**: Use a formal business tone. Avoid all emojis.
+2. **Synthesize, Don't List**: Identify common themes across multiple complaints rather than just summarizing them individually.
+3. **East African Context**: Where applicable, note regional patterns (Kenya, Uganda, Tanzania, Rwanda).
+4. **Actionable Insights**: Provide specific, data-backed recommendations for product or support teams.
+5. **Groundedness**: Only use information present in the provided excerpts. If the answer is not in the context, state it clearly.
 
-**REQUIRED OUTPUT FORMAT:**
-- Executive Summary: 2-3 sentence overview of key findings
-- Key Findings: Bulleted list of quantified insights with complaint evidence
-- Geographic Patterns: Regional variations if apparent
-- Product Impact: Which products are most affected
-- Recommended Actions: 2-3 specific next steps for investigation
-- Data Limitations: Scope and confidence notes
+### OUTPUT STRUCTURE
+- **Executive Summary**: A concise (3-4 sentence) high-level overview.
+- **Critical Issues Identified**: A prioritized list of recurring pain points.
+- **Regional Considerations**: Market-specific patterns if observed.
+- **Operational Recommendations**: Strategic next steps for the business.
 
-**ANALYSIS:**"""
+Your analysis:"""
         
         return prompt
     
     def generate_answer(self, prompt: str) -> str:
-        """Generate business-ready analysis"""
+        """Generate analysis using the Gemini API"""
         try:
-            result = self.generator(
-                prompt,
-                max_length=600,
-                num_beams=4,
-                early_stopping=True,
-                temperature=0.2,
-                no_repeat_ngram_size=3,
-                repetition_penalty=1.2
+            logger.info("Sending prompt to Gemini...")
+            
+            # Using the new google-genai SDK method
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=prompt
             )
             
-            generated_text = result[0]['generated_text']
+            if not response.text:
+                raise GenerationError("Gemini returned an empty response")
             
-            # Extract analysis part
-            if "ANALYSIS:" in generated_text:
-                analysis = generated_text.split("ANALYSIS:")[-1].strip()
-            else:
-                analysis = generated_text.strip()
+            analysis = response.text.strip()
             
-            # Format for business readability
-            analysis = self._format_business_output(analysis)
+            # Clean up any residual emojis or informal formatting if the LLM hallucinated them
+            analysis = self._sanitize_business_output(analysis)
             
-            logger.info("Business analysis generated successfully")
+            logger.info("Business analysis generated successfully via Gemini")
             return analysis
             
         except Exception as e:
-            error_msg = f"Failed to generate business analysis: {str(e)}"
+            error_msg = f"Failed to generate analysis via Gemini: {str(e)}"
             logger.error(error_msg)
-            return "**SYSTEM ERROR**\nI encountered a technical issue generating the analysis. Please try again with a different question or contact technical support."
+            return "TECHNICAL ERROR: I encountered an issue connecting to the analysis engine. Please verify your API configuration and try again."
     
-    def _format_business_output(self, analysis: str) -> str:
-        """Format the analysis for business readability"""
-        analysis = re.sub(r'\n+', '\n', analysis)
-        analysis = analysis.replace('•', '  • ')
-        analysis = analysis.replace('-', '  - ')
-        return analysis
+    def _sanitize_business_output(self, analysis: str) -> str:
+        """Ensure the output is professional and emoji-free"""
+        # Remove common emojis if they slipped through
+        analysis = re.sub(r'[^\x00-\x7F]+', '', analysis) 
+        # Ensure clean formatting
+        analysis = analysis.replace('•', '-')
+        return analysis.strip()

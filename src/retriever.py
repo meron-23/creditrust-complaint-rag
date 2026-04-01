@@ -53,11 +53,17 @@ class ComplaintRetriever:
             raise RetrievalError(f"Failed to retrieve chunks: {str(e)}")
     
     def _passes_filters(self, metadata: Dict, filters: Optional[Dict]) -> bool:
-        """Check if metadata passes all filters"""
+        """Check if metadata passes all filters (case-insensitive)"""
         if not filters:
             return True
         
         for key, value in filters.items():
-            if key in metadata and metadata[key] != value:
-                return False
+            if key in metadata:
+                # Handle case-insensitive comparison for strings
+                meta_val = metadata[key]
+                if isinstance(meta_val, str) and isinstance(value, str):
+                    if meta_val.lower() != value.lower():
+                        return False
+                elif meta_val != value:
+                    return False
         return True

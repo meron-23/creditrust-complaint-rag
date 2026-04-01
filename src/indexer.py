@@ -2,7 +2,7 @@ import os
 import pickle
 import pandas as pd
 from typing import Dict, List, Any
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
